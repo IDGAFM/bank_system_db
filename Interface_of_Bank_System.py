@@ -4,6 +4,8 @@ import tkinter as tk
 from config import host, user, password, db_name
 
 
+print("hello world!!!!")
+
 def generate_random_inn():
     year = str(random.randint(0, 99)).zfill(2)
     month = str(random.randint(1, 12)).zfill(2)
