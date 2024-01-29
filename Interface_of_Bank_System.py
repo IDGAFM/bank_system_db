@@ -6,6 +6,11 @@ from config import *
 import requests
 
 
+def create_connection():
+    conn = psycopg2.connect(host=host, user=user, password=password, dbname=db_name, client_encoding='UTF-8')
+    return conn
+
+
 def generate_random_inn():
     year = str(random.randint(0, 99)).zfill(2)
     month = str(random.randint(1, 12)).zfill(2)
@@ -18,7 +23,7 @@ def show_users():
     user_window.title("Данные о пользователях")
 
     try:
-        with psycopg2.connect(host=host, user=user, password=password, database=db_name, client_encoding='utf8') as connection:
+        with psycopg2.connect(host=host, user=user, password=password, database=db_name) as connection:
             print("Соединение прошло успешно.")
 
         with connection.cursor() as cur:
@@ -51,7 +56,7 @@ def show_users():
 
 def show_accounts():
     try:
-        with psycopg2.connect(host=host, user=user, password=password, database=db_name, client_encoding='utf8') as connection:
+        with psycopg2.connect(host=host, user=user, password=password, database=db_name) as connection:
             print("Соединение прошло успешно.")
 
         with connection.cursor() as cur:
@@ -66,7 +71,7 @@ def show_accounts():
 
 def show_payments_history():
     try:
-        with psycopg2.connect(host=host, user=user, password=password, database=db_name, client_encoding='utf8') as connection:
+        with psycopg2.connect(host=host, user=user, password=password, database=db_name) as connection:
             print("Соединение прошло успешно.")
 
         with connection.cursor() as cur:
@@ -81,7 +86,7 @@ def show_payments_history():
 
 def show_payments():
     try:
-        with psycopg2.connect(host=host, user=user, password=password, database=db_name, client_encoding='utf8') as connection:
+        with psycopg2.connect(host=host, user=user, password=password, database=db_name) as connection:
             print("Соединение прошло успешно.")
 
         with connection.cursor() as cur:
@@ -137,11 +142,11 @@ def show_branches():
 
 
 def open_login_window():
-    def login(username, password):
+    def login(iin, password):
         try:
-            with psycopg2.connect(host=host, user=user, password=password, database=db_name, client_encoding='utf8') as connection:
+            with create_connection() as connection:
                 with connection.cursor() as cur:
-                    cur.execute("SELECT * FROM users WHERE iin = %s AND password = %s", (username, password))
+                    cur.execute("SELECT * FROM users WHERE iin = %s AND password = %s", (iin, password))
                     user_data = cur.fetchone()
 
                     if user_data:
@@ -173,11 +178,12 @@ def open_login_window():
 
 
 def open_register_window():
-    def register(username, password):
+    def register(iin, password):
         try:
-            with psycopg2.connect(host=host, user=user, password=password, database=db_name, client_encoding='utf8') as connection:
+            with create_connection() as connection:
+
                 with connection.cursor() as cur:
-                    cur.execute("INSERT INTO users (iin, password) VALUES (%s, %s)", (username, password))
+                    cur.execute("INSERT INTO users (iin, password) VALUES (%s, %s)", (iin, password))
                     messagebox.showinfo("Успех", "Регистрация прошла успешно!")
                     register_window.destroy()
                     show_main_window()
