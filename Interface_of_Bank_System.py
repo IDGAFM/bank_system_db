@@ -6,6 +6,8 @@ from config import *
 import requests
 
 
+
+
 def create_connection():
     conn = psycopg2.connect(host=host, user=user, password=password, dbname=db_name, client_encoding='UTF-8')
     return conn
@@ -152,7 +154,7 @@ def open_login_window():
                     if user_data:
                         messagebox.showinfo("Успех", "Вы успешно вошли в систему!")
                         login_window.destroy()
-                        show_main_window()
+                        show_main_window(user_data[0])
                     else:
                         messagebox.showerror("Ошибка", "Неверные данные пользователя!")
 
@@ -209,11 +211,12 @@ def open_register_window():
     btn_register.pack(pady=20)
 
 
-def show_main_window():
+def show_main_window(user_id):
     root.withdraw()
     main_window = tk.Tk()
     main_window.title("Банковская система")
     main_window.geometry('750x750')
+    button_font = ("Arial", 14)
 
     menubar = tk.Menu(main_window)
     main_window.config(menu=menubar)
@@ -234,16 +237,101 @@ def show_main_window():
     payment_menu.add_command(label="История платежей", command=show_payments_history)
     payment_menu.add_command(label="Платежи", command=show_payments_history)
 
-    users_button = tk.Button(main_window, text="Пользователи", command=show_users, font=("Arial", 14))
-    accounts_button = tk.Button(main_window, text="Счета", command=show_accounts, font=("Arial", 14))
-    currency_rates_button = tk.Button(main_window, text="Курсы валют", command=show_currency_rates, font=("Arial", 14))
+    def get_user_data(user_id):  # Принимаем user_id в качестве аргумента
+        try:
+            with psycopg2.connect(host=host, user=user, password=password, database=db_name,
+                                  client_encoding='utf-8') as connection:
+                with connection.cursor() as cur:
+                    cur.execute(
+                        "SELECT u.first_name, u.last_name, u.iin, cc.card_num, a.balance FROM users u LEFT JOIN creditcards cc ON u.user_id = cc.user_id LEFT JOIN account a ON u.user_id = a.user_id WHERE u.user_id = %s",
+                        (user_id,))
+                    user_data = cur.fetchone()
+                    return user_data
+        except psycopg2.Error as e:
+            messagebox.showerror("Ошибка", f"Не удалось получить данные о пользователе: {e}")
+            return None
 
-    branches_button = tk.Button(main_window, text="Филиалы", command=show_branches, font=("Arial", 14))
+    def display_user_data(user_id):
+        user_data = get_user_data(user_id)
+        if user_data:
+            first_name, last_name, iin, card_num, balance = user_data
 
-    users_button.pack(pady=10)
-    accounts_button.pack(pady=10)
-    currency_rates_button.pack(pady=10)
-    branches_button.pack(pady=10)
+            user_info_frame = tk.Frame(main_window)
+            user_info_frame.grid(row=0, column=0, sticky='nw', padx=10, pady=10)
+
+            user_info_label = tk.Label(user_info_frame, text=f"Имя: {first_name} {last_name}", font=("Arial", 14))
+            user_info_label.grid(row=0, column=0, sticky='nw')
+
+            iin_label = tk.Label(user_info_frame, text=f"ИИН: {iin}", font=("Arial", 14))
+            iin_label.grid(row=1, column=0, sticky='nw')
+
+            card_num_label = tk.Label(user_info_frame, text=f"Номер карты: {card_num}", font=("Arial", 14))
+            card_num_label.grid(row=2, column=0, sticky='nw')
+
+            balance_label = tk.Label(user_info_frame, text=f"Баланс: {balance}", font=("Arial", 14))
+            balance_label.grid(row=3, column=0, sticky='nw')
+
+            def edit_user(user_id):
+                def save_changes(user_id):
+                    new_first_name = entry_first_name.get()
+                    new_last_name = entry_last_name.get()
+
+                    try:
+                        with create_connection() as connection:
+                            with connection.cursor() as cur:
+                                cur.execute("UPDATE users SET first_name = %s, last_name = %s WHERE user_id = %s",
+                                            (new_first_name, new_last_name, user_id))
+                                messagebox.showinfo("Успех", "Данные пользователя успешно обновлены!")
+                                edit_window.destroy()
+                                display_user_data(user_id)
+                    except psycopg2.Error as e:
+                        messagebox.showerror("Ошибка", f"Ошибка при обновлении данных пользователя: {e}")
+
+                edit_window = tk.Toplevel()
+                edit_window.title("Редактирование данных пользователя")
+
+                label_first_name = tk.Label(edit_window, text="Имя:", font=("Arial", 14))
+                label_first_name.grid(row=0, column=0, padx=10, pady=10)
+                entry_first_name = tk.Entry(edit_window, font=("Arial", 14))
+                entry_first_name.grid(row=0, column=1, padx=10, pady=10)
+
+                label_last_name = tk.Label(edit_window, text="Фамилия:", font=("Arial", 14))
+                label_last_name.grid(row=1, column=0, padx=10, pady=10)
+                entry_last_name = tk.Entry(edit_window, font=("Arial", 14))
+                entry_last_name.grid(row=1, column=1, padx=10, pady=10)
+
+                btn_save_changes = tk.Button(edit_window, text="Сохранить изменения",
+                                             command=lambda: save_changes(user_id),
+                                             font=("Arial", 14))
+                btn_save_changes.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
+
+                user_data = get_user_data(user_id)
+                if user_data:
+                    entry_first_name.insert(0, user_data[0])
+                    entry_last_name.insert(0, user_data[1])
+
+            edit_button = tk.Button(user_info_frame, text="Редактировать", command=lambda: edit_user(user_id),
+                                    font=("Arial", 14))
+            edit_button.grid(row=4, column=0, sticky='nw', pady=10)
+
+    display_user_data(user_id)
+
+    buttons_frame = tk.Frame(main_window)
+    buttons_frame.grid(row=0, column=1, sticky='ne', padx=170, pady=10)
+
+    button_width = 20
+
+    accounts_button = tk.Button(buttons_frame, text="Счета", command=show_accounts, font=button_font,
+                                width=button_width)
+    accounts_button.grid(row=0, column=2, sticky="ne", padx=10, pady=5)
+
+    currency_rates_button = tk.Button(buttons_frame, text="Курсы валют", command=show_currency_rates, font=button_font,
+                                      width=button_width)
+    currency_rates_button.grid(row=1, column=2, sticky="ne", padx=10, pady=5)
+
+    branches_button = tk.Button(buttons_frame, text="Филиалы", command=show_branches, font=button_font,
+                                width=button_width)
+    branches_button.grid(row=2, column=2, sticky="ne", padx=10, pady=5)
 
     main_window.mainloop()
 
@@ -257,5 +345,6 @@ user_login.pack(pady=20)
 
 user_register = tk.Button(root, text="Зарегистрироваться", command=open_register_window, font=("Arial", 14))
 user_register.pack(pady=20)
+root.mainloop()
 
 root.mainloop()
